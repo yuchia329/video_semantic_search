@@ -5,3 +5,6 @@ sentence-transformers==3.0.0
 torch==2.3.0
 whisperx==3.1.1
 vllm==0.4.2
+transformers==4.40.0
+torchaudio==2.3.0
+numpy<2.0.0

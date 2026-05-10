@@ -32,24 +32,24 @@ uv pip install -r requirements.txt
 
 You will need to start three separate processes (using `tmux`, `screen`, or `nohup`) inside your activated `uv` environment.
 
-### A. Embeddings Server (Port 8080)
+### A. Embeddings Server (Port 8901)
 Runs `BAAI/bge-m3` using `sentence-transformers`.
 ```bash
 python serve_embeddings.py
 ```
 
-### B. Transcription Server (Port 8081)
+### B. Transcription Server (Port 8902)
 Runs `WhisperX` for fast transcription with timestamps.
 ```bash
 python serve_transcription.py
 ```
 
-### C. LLM Server (Port 8000)
+### C. LLM Server (Port 8900)
 Runs `vLLM` to serve large language models natively.
 ```bash
 python -m vllm.entrypoints.openai.api_server \
-  --model meta-llama/Llama-3-8B-Instruct \
-  --port 8000 \
+  --model meta-llama/Llama-3.1-8B-Instruct \
+  --port 8900 \
   --host 0.0.0.0
 ```
 

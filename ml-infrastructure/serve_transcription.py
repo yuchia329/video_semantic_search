@@ -1,4 +1,5 @@
 import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import shutil
 from fastapi import FastAPI, File, UploadFile, HTTPException
 import whisperx
@@ -12,7 +13,15 @@ compute_type = "float16" if device == "cuda" else "int8"
 
 print(f"Loading WhisperX model on {device}...")
 # Load the WhisperX model once
-model = whisperx.load_model("large-v2", device, compute_type=compute_type)
+model = whisperx.load_model(
+    "large-v2", 
+    device, 
+    compute_type=compute_type,
+    # multilingual=True,
+    # max_new_tokens=5024,
+    # clip_timestamps=True,
+    # hallucination_silence_threshold
+    )
 
 @app.post("/transcribe")
 async def transcribe_audio(file: UploadFile = File(...)):
@@ -41,4 +50,4 @@ async def transcribe_audio(file: UploadFile = File(...)):
 if __name__ == "__main__":
     import uvicorn
     # Bind to 0.0.0.0 to allow SSH tunneling
-    uvicorn.run(app, host="0.0.0.0", port=8081)
+    uvicorn.run(app, host="0.0.0.0", port=8902)

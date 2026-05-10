@@ -1,4 +1,5 @@
 import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer
@@ -32,4 +33,4 @@ async def embed_text(req: EmbeddingRequest):
 if __name__ == "__main__":
     import uvicorn
     # Bind to 0.0.0.0 to allow SSH tunneling from external interfaces
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run(app, host="0.0.0.0", port=8901)
