@@ -26,6 +26,8 @@ source .venv/bin/activate
 
 # Install the dependencies
 uv pip install -r requirements.txt
+uv pip install transformers pillow torchvision
+
 ```
 
 ## 2. Running the Inference Servers
@@ -45,12 +47,20 @@ python serve_transcription.py
 ```
 
 ### C. LLM Server (Port 8900)
-Runs `vLLM` to serve large language models natively.
+Runs `vLLM` to serve a quantized Llama-3 70B model natively (fits on 2x 3090 GPUs).
 ```bash
 python -m vllm.entrypoints.openai.api_server \
-  --model meta-llama/Llama-3.1-8B-Instruct \
+  --model casperhansen/llama-3-70b-instruct-awq \
+  --quantization awq \
+  --tensor-parallel-size 2 \
   --port 8900 \
   --host 0.0.0.0
+```
+
+### D. Vision Embedding Server (Port 8903)
+Runs `SigLIP` to encode video frames and visual search queries into a shared multimodal space.
+```bash
+python serve_vision.py
 ```
 
 ## 3. Setup SSH Port Forwarding (On Your Local Mac)
@@ -58,11 +68,12 @@ python -m vllm.entrypoints.openai.api_server \
 To securely connect your local Go backend to these remote Python APIs, open a terminal on your M4 Mac and run the following command. This will bind your local ports to the server's ports over an encrypted SSH tunnel.
 
 ```bash
-ssh -N -L 8000:localhost:8000 \
-       -L 8080:localhost:8080 \
-       -L 8081:localhost:8081 \
+ssh -N -L 8900:localhost:8900 \
+       -L 8901:localhost:8901 \
+       -L 8902:localhost:8902 \
+       -L 8903:localhost:8903 \
        user@your_school_server_ip
 ```
 *(Leave this terminal running in the background).*
 
-Now, your local Go backend can send requests to `localhost:8000`, `localhost:8080`, and `localhost:8081`, and they will automatically and securely be forwarded to the GPU models running on your school server!
+Now, your local Go backend can send requests to `localhost:8900`, `localhost:8901`, `localhost:8902`, and `localhost:8903`, and they will automatically and securely be forwarded to the GPU models running on your school server!

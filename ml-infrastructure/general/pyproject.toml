@@ -1,0 +1,26 @@
+[project]
+name = "ml-infrastructure"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.136.1",
+    "pillow>=12.2.0",
+    "pydantic>=2.13.4",
+    "sentence-transformers>=5.4.1",
+    # "torch==2.11.0+cu126", # Explicitly pin to 2.11.0
+    # "torchaudio==2.11.0+cu126",
+    # "torchvision==0.26.0+cu126", # This is the matching pair for 2.11.0exit()
+    "vllm==0.19",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu126" }]
+torchvision = [{ index = "pytorch-cu126" }]
+torchaudio = [{ index = "pytorch-cu126" }]
