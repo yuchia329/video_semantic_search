@@ -49,12 +49,15 @@ python serve_transcription.py
 ### C. LLM Server (Port 8900)
 Runs `vLLM` to serve a quantized Llama-3 70B model natively (fits on 2x 3090 GPUs).
 ```bash
-python -m vllm.entrypoints.openai.api_server \
-  --model casperhansen/llama-3-70b-instruct-awq \
-  --quantization awq \
+PYTORCH_ALLOC_CONF=expandable_segments:True CUDA_VISIBLE_DEVICES=1,2 \
+uv run vllm serve Qwen/Qwen3.5-35B-A3B-GPTQ-Int4  \
   --tensor-parallel-size 2 \
   --port 8900 \
-  --host 0.0.0.0
+  --host 0.0.0.0 \
+  --max-model-len 32768 \
+  --gpu-memory-utilization 0.80 \
+  --reasoning-parser qwen3 \
+  --quantization marlin
 ```
 
 ### D. Vision Embedding Server (Port 8903)
