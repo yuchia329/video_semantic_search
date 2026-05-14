@@ -1,68 +1,58 @@
 import os
-import io
-import torch
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 from fastapi import FastAPI, UploadFile, File, HTTPException
-from transformers import AutoProcessor, AutoModel
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from pydantic import BaseModel
+import shutil
 from PIL import Image
 
-# Force CUDA 0 before any torch imports if possible, or keep as is
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+app = FastAPI(title="Vision Captioning Service (moondream2)")
 
-app = FastAPI(title="Vision Embedding Service (SigLIP)")
-
-# Use 'cuda' only if the driver is actually compatible
 device = "cuda" if torch.cuda.is_available() else "cpu"
-print(f"Loading SigLIP model on {device}...")
+print(f"Loading moondream2 model on {device}...")
 
-model_name = "google/siglip-base-patch16-224"
-processor = AutoProcessor.from_pretrained(model_name)
-model = AutoModel.from_pretrained(model_name).to(device)
+model_name = "vikhyatk/moondream2"
+tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+model = AutoModelForCausalLM.from_pretrained(
+    model_name,
+    trust_remote_code=True,
+    torch_dtype=torch.float16 if device == "cuda" else torch.float32,
+    device_map={"": device},
+)
+model.eval()
 
-class TextEmbeddingRequest(BaseModel):
-    text: str
+print("moondream2 loaded successfully.")
 
-class EmbeddingResponse(BaseModel):
-    embedding: list[float]
+class CaptionResponse(BaseModel):
+    caption: str
 
-@app.post("/embed_image", response_model=EmbeddingResponse)
-async def embed_image(file: UploadFile = File(...)):
+@app.post("/caption", response_model=CaptionResponse)
+async def caption_image(file: UploadFile = File(...)):
+    """Generate a text caption/description for an uploaded image."""
     try:
-        # READ DIRECTLY INTO MEMORY (Fixes permission/path errors)
-        request_object_content = await file.read()
-        image = Image.open(io.BytesIO(request_object_content)).convert("RGB")
-        
-        inputs = processor(images=image, return_tensors="pt").to(device)
-        
-        with torch.no_grad():
-            image_features = model.get_image_features(**inputs)
-            
-        # Normalize the embedding
-        image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-        embedding = image_features.cpu().numpy()[0].tolist()
-        
-        return EmbeddingResponse(embedding=embedding)
-    except Exception as e:
-        # LOG THE ACTUAL ERROR to the terminal
-        print(f"ERROR: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Inference failed: {str(e)}")
+        temp_path = f"/tmp/{file.filename}"
+        with open(temp_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
 
-@app.post("/embed_text", response_model=EmbeddingResponse)
-async def embed_text(req: TextEmbeddingRequest):
-    try:
-        # SigLIP text embeddings for matching against image embeddings
-        inputs = processor(text=[req.text], padding="max_length", return_tensors="pt").to(device)
-        
-        with torch.no_grad():
-            text_features = model.get_text_features(**inputs)
-            
-        # Normalize the embedding
-        text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-        embedding = text_features.cpu().numpy()[0].tolist()
-        
-        return EmbeddingResponse(embedding=embedding)
+        image = Image.open(temp_path).convert("RGB")
+
+        # moondream2 uses encode_image + answer
+        enc_image = model.encode_image(image)
+        caption = model.answer_question(
+            enc_image,
+            "Describe this image in detail. Include objects, people, colors, text, actions, and setting.",
+            tokenizer,
+        )
+
+        os.remove(temp_path)
+        return CaptionResponse(caption=caption)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "model": "moondream2"}
 
 if __name__ == "__main__":
     import uvicorn
