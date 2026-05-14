@@ -37,32 +37,62 @@ type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
+	ChatResponse struct {
+		Answer     func(childComplexity int) int
+		References func(childComplexity int) int
+		Thinking   func(childComplexity int) int
+	}
+
 	Mutation struct {
-		CreateTodo func(childComplexity int, input model.NewTodo) int
+		DeleteVideo         func(childComplexity int, videoID string) int
+		FinalizeVideoUpload func(childComplexity int, input model.FinalizeVideoInput) int
+		ProcessYouTubeVideo func(childComplexity int, input model.YouTubeInput) int
+		RequestVideoUpload  func(childComplexity int, input model.UploadVideoInput) int
 	}
 
 	Query struct {
-		Todos func(childComplexity int) int
+		ChatWithVideo   func(childComplexity int, videoID string, message string, history []string) int
+		GetAllVideos    func(childComplexity int) int
+		GetVideoSummary func(childComplexity int, videoID string) int
+		SemanticSearch  func(childComplexity int, videoID *string, query string, limit *int32) int
 	}
 
-	Todo struct {
-		Done func(childComplexity int) int
-		ID   func(childComplexity int) int
-		Text func(childComplexity int) int
-		User func(childComplexity int) int
+	SearchResult struct {
+		Text       func(childComplexity int) int
+		Timestamp  func(childComplexity int) int
+		Type       func(childComplexity int) int
+		VideoID    func(childComplexity int) int
+		VideoS3Key func(childComplexity int) int
+		VideoTitle func(childComplexity int) int
 	}
 
-	User struct {
-		ID   func(childComplexity int) int
-		Name func(childComplexity int) int
+	UploadResponse struct {
+		S3Key     func(childComplexity int) int
+		UploadURL func(childComplexity int) int
+		VideoID   func(childComplexity int) int
+	}
+
+	Video struct {
+		CreatedAt func(childComplexity int) int
+		ID        func(childComplexity int) int
+		S3Key     func(childComplexity int) int
+		Status    func(childComplexity int) int
+		Summary   func(childComplexity int) int
+		Title     func(childComplexity int) int
 	}
 }
 
 type MutationResolver interface {
-	CreateTodo(ctx context.Context, input model.NewTodo) (*model.Todo, error)
+	RequestVideoUpload(ctx context.Context, input model.UploadVideoInput) (*model.UploadResponse, error)
+	FinalizeVideoUpload(ctx context.Context, input model.FinalizeVideoInput) (*model.Video, error)
+	ProcessYouTubeVideo(ctx context.Context, input model.YouTubeInput) (*model.Video, error)
+	DeleteVideo(ctx context.Context, videoID string) (bool, error)
 }
 type QueryResolver interface {
-	Todos(ctx context.Context) ([]*model.Todo, error)
+	GetVideoSummary(ctx context.Context, videoID string) (*model.Video, error)
+	SemanticSearch(ctx context.Context, videoID *string, query string, limit *int32) ([]*model.SearchResult, error)
+	ChatWithVideo(ctx context.Context, videoID string, message string, history []string) (*model.ChatResponse, error)
+	GetAllVideos(ctx context.Context) ([]*model.Video, error)
 }
 
 type executableSchema graphql.ExecutableSchemaState[ResolverRoot, DirectiveRoot, ComplexityRoot]
@@ -79,62 +109,203 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 	_ = ec
 	switch typeName + "." + field {
 
-	case "Mutation.createTodo":
-		if e.ComplexityRoot.Mutation.CreateTodo == nil {
+	case "ChatResponse.answer":
+		if e.ComplexityRoot.ChatResponse.Answer == nil {
 			break
 		}
 
-		args, err := ec.field_Mutation_createTodo_args(ctx, rawArgs)
+		return e.ComplexityRoot.ChatResponse.Answer(childComplexity), true
+	case "ChatResponse.references":
+		if e.ComplexityRoot.ChatResponse.References == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ChatResponse.References(childComplexity), true
+	case "ChatResponse.thinking":
+		if e.ComplexityRoot.ChatResponse.Thinking == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ChatResponse.Thinking(childComplexity), true
+
+	case "Mutation.deleteVideo":
+		if e.ComplexityRoot.Mutation.DeleteVideo == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteVideo_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Mutation.CreateTodo(childComplexity, args["input"].(model.NewTodo)), true
-
-	case "Query.todos":
-		if e.ComplexityRoot.Query.Todos == nil {
+		return e.ComplexityRoot.Mutation.DeleteVideo(childComplexity, args["videoId"].(string)), true
+	case "Mutation.finalizeVideoUpload":
+		if e.ComplexityRoot.Mutation.FinalizeVideoUpload == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Query.Todos(childComplexity), true
+		args, err := ec.field_Mutation_finalizeVideoUpload_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
 
-	case "Todo.done":
-		if e.ComplexityRoot.Todo.Done == nil {
+		return e.ComplexityRoot.Mutation.FinalizeVideoUpload(childComplexity, args["input"].(model.FinalizeVideoInput)), true
+	case "Mutation.processYouTubeVideo":
+		if e.ComplexityRoot.Mutation.ProcessYouTubeVideo == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Todo.Done(childComplexity), true
-	case "Todo.id":
-		if e.ComplexityRoot.Todo.ID == nil {
+		args, err := ec.field_Mutation_processYouTubeVideo_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.ProcessYouTubeVideo(childComplexity, args["input"].(model.YouTubeInput)), true
+	case "Mutation.requestVideoUpload":
+		if e.ComplexityRoot.Mutation.RequestVideoUpload == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Todo.ID(childComplexity), true
-	case "Todo.text":
-		if e.ComplexityRoot.Todo.Text == nil {
+		args, err := ec.field_Mutation_requestVideoUpload_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.RequestVideoUpload(childComplexity, args["input"].(model.UploadVideoInput)), true
+
+	case "Query.chatWithVideo":
+		if e.ComplexityRoot.Query.ChatWithVideo == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Todo.Text(childComplexity), true
-	case "Todo.user":
-		if e.ComplexityRoot.Todo.User == nil {
+		args, err := ec.field_Query_chatWithVideo_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.ChatWithVideo(childComplexity, args["videoId"].(string), args["message"].(string), args["history"].([]string)), true
+	case "Query.getAllVideos":
+		if e.ComplexityRoot.Query.GetAllVideos == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Todo.User(childComplexity), true
-
-	case "User.id":
-		if e.ComplexityRoot.User.ID == nil {
+		return e.ComplexityRoot.Query.GetAllVideos(childComplexity), true
+	case "Query.getVideoSummary":
+		if e.ComplexityRoot.Query.GetVideoSummary == nil {
 			break
 		}
 
-		return e.ComplexityRoot.User.ID(childComplexity), true
-	case "User.name":
-		if e.ComplexityRoot.User.Name == nil {
+		args, err := ec.field_Query_getVideoSummary_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.GetVideoSummary(childComplexity, args["videoId"].(string)), true
+
+	case "Query.semanticSearch":
+		if e.ComplexityRoot.Query.SemanticSearch == nil {
 			break
 		}
 
-		return e.ComplexityRoot.User.Name(childComplexity), true
+		args, err := ec.field_Query_semanticSearch_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.SemanticSearch(childComplexity, args["videoId"].(*string), args["query"].(string), args["limit"].(*int32)), true
+
+	case "SearchResult.text":
+		if e.ComplexityRoot.SearchResult.Text == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SearchResult.Text(childComplexity), true
+	case "SearchResult.timestamp":
+		if e.ComplexityRoot.SearchResult.Timestamp == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SearchResult.Timestamp(childComplexity), true
+	case "SearchResult.type":
+		if e.ComplexityRoot.SearchResult.Type == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SearchResult.Type(childComplexity), true
+	case "SearchResult.videoId":
+		if e.ComplexityRoot.SearchResult.VideoID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SearchResult.VideoID(childComplexity), true
+	case "SearchResult.videoS3Key":
+		if e.ComplexityRoot.SearchResult.VideoS3Key == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SearchResult.VideoS3Key(childComplexity), true
+	case "SearchResult.videoTitle":
+		if e.ComplexityRoot.SearchResult.VideoTitle == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SearchResult.VideoTitle(childComplexity), true
+
+	case "UploadResponse.s3Key":
+		if e.ComplexityRoot.UploadResponse.S3Key == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UploadResponse.S3Key(childComplexity), true
+	case "UploadResponse.uploadUrl":
+		if e.ComplexityRoot.UploadResponse.UploadURL == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UploadResponse.UploadURL(childComplexity), true
+	case "UploadResponse.videoId":
+		if e.ComplexityRoot.UploadResponse.VideoID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UploadResponse.VideoID(childComplexity), true
+
+	case "Video.createdAt":
+		if e.ComplexityRoot.Video.CreatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Video.CreatedAt(childComplexity), true
+	case "Video.id":
+		if e.ComplexityRoot.Video.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Video.ID(childComplexity), true
+	case "Video.s3Key":
+		if e.ComplexityRoot.Video.S3Key == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Video.S3Key(childComplexity), true
+	case "Video.status":
+		if e.ComplexityRoot.Video.Status == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Video.Status(childComplexity), true
+	case "Video.summary":
+		if e.ComplexityRoot.Video.Summary == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Video.Summary(childComplexity), true
+	case "Video.title":
+		if e.ComplexityRoot.Video.Title == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Video.Title(childComplexity), true
 
 	}
 	return 0, false
@@ -144,7 +315,9 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	opCtx := graphql.GetOperationContext(ctx)
 	ec := newExecutionContext(opCtx, e, make(chan graphql.DeferredResult))
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
-		ec.unmarshalInputNewTodo,
+		ec.unmarshalInputFinalizeVideoInput,
+		ec.unmarshalInputUploadVideoInput,
+		ec.unmarshalInputYouTubeInput,
 	)
 	first := true
 
@@ -239,28 +412,64 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 // Each function is generated once per unique object type, deduplicating the
 // switch statements that were previously inlined in every fieldContext_* function.
 
-func (ec *executionContext) childFields_Todo(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+func (ec *executionContext) childFields_ChatResponse(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
-	case "id":
-		return ec.fieldContext_Todo_id(ctx, field)
-	case "text":
-		return ec.fieldContext_Todo_text(ctx, field)
-	case "done":
-		return ec.fieldContext_Todo_done(ctx, field)
-	case "user":
-		return ec.fieldContext_Todo_user(ctx, field)
+	case "answer":
+		return ec.fieldContext_ChatResponse_answer(ctx, field)
+	case "thinking":
+		return ec.fieldContext_ChatResponse_thinking(ctx, field)
+	case "references":
+		return ec.fieldContext_ChatResponse_references(ctx, field)
 	}
-	return nil, fmt.Errorf("no field named %q was found under type Todo", field.Name)
+	return nil, fmt.Errorf("no field named %q was found under type ChatResponse", field.Name)
 }
 
-func (ec *executionContext) childFields_User(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+func (ec *executionContext) childFields_SearchResult(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "videoId":
+		return ec.fieldContext_SearchResult_videoId(ctx, field)
+	case "videoTitle":
+		return ec.fieldContext_SearchResult_videoTitle(ctx, field)
+	case "videoS3Key":
+		return ec.fieldContext_SearchResult_videoS3Key(ctx, field)
+	case "timestamp":
+		return ec.fieldContext_SearchResult_timestamp(ctx, field)
+	case "text":
+		return ec.fieldContext_SearchResult_text(ctx, field)
+	case "type":
+		return ec.fieldContext_SearchResult_type(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type SearchResult", field.Name)
+}
+
+func (ec *executionContext) childFields_UploadResponse(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "uploadUrl":
+		return ec.fieldContext_UploadResponse_uploadUrl(ctx, field)
+	case "videoId":
+		return ec.fieldContext_UploadResponse_videoId(ctx, field)
+	case "s3Key":
+		return ec.fieldContext_UploadResponse_s3Key(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type UploadResponse", field.Name)
+}
+
+func (ec *executionContext) childFields_Video(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "id":
-		return ec.fieldContext_User_id(ctx, field)
-	case "name":
-		return ec.fieldContext_User_name(ctx, field)
+		return ec.fieldContext_Video_id(ctx, field)
+	case "title":
+		return ec.fieldContext_Video_title(ctx, field)
+	case "status":
+		return ec.fieldContext_Video_status(ctx, field)
+	case "summary":
+		return ec.fieldContext_Video_summary(ctx, field)
+	case "s3Key":
+		return ec.fieldContext_Video_s3Key(ctx, field)
+	case "createdAt":
+		return ec.fieldContext_Video_createdAt(ctx, field)
 	}
-	return nil, fmt.Errorf("no field named %q was found under type User", field.Name)
+	return nil, fmt.Errorf("no field named %q was found under type Video", field.Name)
 }
 
 func (ec *executionContext) childFields___Directive(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -379,12 +588,54 @@ func (ec *executionContext) childFields___Type(ctx context.Context, field graphq
 
 // region    ***************************** args.gotpl *****************************
 
-func (ec *executionContext) field_Mutation_createTodo_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Mutation_deleteVideo_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "videoId",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["videoId"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_finalizeVideoUpload_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
-		func(ctx context.Context, v any) (model.NewTodo, error) {
-			return ec.unmarshalNNewTodo2githubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐNewTodo(ctx, v)
+		func(ctx context.Context, v any) (model.FinalizeVideoInput, error) {
+			return ec.unmarshalNFinalizeVideoInput2githubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐFinalizeVideoInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_processYouTubeVideo_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.YouTubeInput, error) {
+			return ec.unmarshalNYouTubeInput2githubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐYouTubeInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_requestVideoUpload_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.UploadVideoInput, error) {
+			return ec.unmarshalNUploadVideoInput2githubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐUploadVideoInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -404,6 +655,80 @@ func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs
 		return nil, err
 	}
 	args["name"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_chatWithVideo_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "videoId",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["videoId"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "message",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["message"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "history",
+		func(ctx context.Context, v any) ([]string, error) {
+			return ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["history"] = arg2
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_getVideoSummary_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "videoId",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["videoId"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_semanticSearch_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "videoId",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOID2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["videoId"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "query",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["query"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "limit",
+		func(ctx context.Context, v any) (*int32, error) {
+			return ec.unmarshalOInt2ᚖint32(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["limit"] = arg2
 	return args, nil
 }
 
@@ -471,34 +796,112 @@ func (ec *executionContext) field___Type_fields_args(ctx context.Context, rawArg
 
 // region    **************************** field.gotpl *****************************
 
-func (ec *executionContext) _Mutation_createTodo(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+func (ec *executionContext) _ChatResponse_answer(ctx context.Context, field graphql.CollectedField, obj *model.ChatResponse) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Mutation_createTodo(ctx, field)
+			return ec.fieldContext_ChatResponse_answer(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Mutation().CreateTodo(ctx, fc.Args["input"].(model.NewTodo))
+			return obj.Answer, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *model.Todo) graphql.Marshaler {
-			return ec.marshalNTodo2ᚖgithubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐTodo(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_Mutation_createTodo(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_ChatResponse_answer(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ChatResponse", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _ChatResponse_thinking(ctx context.Context, field graphql.CollectedField, obj *model.ChatResponse) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ChatResponse_thinking(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Thinking, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_ChatResponse_thinking(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ChatResponse", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _ChatResponse_references(ctx context.Context, field graphql.CollectedField, obj *model.ChatResponse) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ChatResponse_references(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.References, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.SearchResult) graphql.Marshaler {
+			return ec.marshalNSearchResult2ᚕᚖgithubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐSearchResultᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ChatResponse_references(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ChatResponse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_SearchResult(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_requestVideoUpload(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_requestVideoUpload(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().RequestVideoUpload(ctx, fc.Args["input"].(model.UploadVideoInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.UploadResponse) graphql.Marshaler {
+			return ec.marshalNUploadResponse2ᚖgithubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐUploadResponse(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_requestVideoUpload(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Mutation",
 		Field:      field,
 		IsMethod:   true,
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Todo(ctx, field)
+			return ec.childFields_UploadResponse(ctx, field)
 		},
 	}
 	defer func() {
@@ -508,40 +911,304 @@ func (ec *executionContext) fieldContext_Mutation_createTodo(ctx context.Context
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_createTodo_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Mutation_requestVideoUpload_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _Query_todos(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+func (ec *executionContext) _Mutation_finalizeVideoUpload(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Query_todos(ctx, field)
+			return ec.fieldContext_Mutation_finalizeVideoUpload(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return ec.Resolvers.Query().Todos(ctx)
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().FinalizeVideoUpload(ctx, fc.Args["input"].(model.FinalizeVideoInput))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.Todo) graphql.Marshaler {
-			return ec.marshalNTodo2ᚕᚖgithubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐTodoᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *model.Video) graphql.Marshaler {
+			return ec.marshalNVideo2ᚖgithubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐVideo(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_Query_todos(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Mutation_finalizeVideoUpload(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Video(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_finalizeVideoUpload_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_processYouTubeVideo(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_processYouTubeVideo(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().ProcessYouTubeVideo(ctx, fc.Args["input"].(model.YouTubeInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.Video) graphql.Marshaler {
+			return ec.marshalNVideo2ᚖgithubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐVideo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_processYouTubeVideo(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Video(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_processYouTubeVideo_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_deleteVideo(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_deleteVideo(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().DeleteVideo(ctx, fc.Args["videoId"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_deleteVideo(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deleteVideo_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_getVideoSummary(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_getVideoSummary(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().GetVideoSummary(ctx, fc.Args["videoId"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.Video) graphql.Marshaler {
+			return ec.marshalOVideo2ᚖgithubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐVideo(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Query_getVideoSummary(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Query",
 		Field:      field,
 		IsMethod:   true,
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Todo(ctx, field)
+			return ec.childFields_Video(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_getVideoSummary_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_semanticSearch(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_semanticSearch(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().SemanticSearch(ctx, fc.Args["videoId"].(*string), fc.Args["query"].(string), fc.Args["limit"].(*int32))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.SearchResult) graphql.Marshaler {
+			return ec.marshalNSearchResult2ᚕᚖgithubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐSearchResultᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_semanticSearch(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_SearchResult(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_semanticSearch_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_chatWithVideo(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_chatWithVideo(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().ChatWithVideo(ctx, fc.Args["videoId"].(string), fc.Args["message"].(string), fc.Args["history"].([]string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.ChatResponse) graphql.Marshaler {
+			return ec.marshalNChatResponse2ᚖgithubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐChatResponse(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_chatWithVideo(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_ChatResponse(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_chatWithVideo_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_getAllVideos(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_getAllVideos(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Query().GetAllVideos(ctx)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.Video) graphql.Marshaler {
+			return ec.marshalNVideo2ᚕᚖgithubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐVideoᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_getAllVideos(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Video(ctx, field)
 		},
 	}
 	return fc, nil
@@ -623,16 +1290,16 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 	return fc, nil
 }
 
-func (ec *executionContext) _Todo_id(ctx context.Context, field graphql.CollectedField, obj *model.Todo) (ret graphql.Marshaler) {
+func (ec *executionContext) _SearchResult_videoId(ctx context.Context, field graphql.CollectedField, obj *model.SearchResult) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Todo_id(ctx, field)
+			return ec.fieldContext_SearchResult_videoId(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.ID, nil
+			return obj.VideoID, nil
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
@@ -642,22 +1309,114 @@ func (ec *executionContext) _Todo_id(ctx context.Context, field graphql.Collecte
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_Todo_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Todo", field, false, false, errors.New("field of type ID does not have child fields"))
+func (ec *executionContext) fieldContext_SearchResult_videoId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SearchResult", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
-func (ec *executionContext) _Todo_text(ctx context.Context, field graphql.CollectedField, obj *model.Todo) (ret graphql.Marshaler) {
+func (ec *executionContext) _SearchResult_videoTitle(ctx context.Context, field graphql.CollectedField, obj *model.SearchResult) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Todo_text(ctx, field)
+			return ec.fieldContext_SearchResult_videoTitle(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.VideoTitle, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SearchResult_videoTitle(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SearchResult", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _SearchResult_videoS3Key(ctx context.Context, field graphql.CollectedField, obj *model.SearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SearchResult_videoS3Key(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.VideoS3Key, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SearchResult_videoS3Key(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SearchResult", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _SearchResult_timestamp(ctx context.Context, field graphql.CollectedField, obj *model.SearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SearchResult_timestamp(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Timestamp, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SearchResult_timestamp(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SearchResult", field, false, false, errors.New("field of type Float does not have child fields"))
+}
+
+func (ec *executionContext) _SearchResult_text(ctx context.Context, field graphql.CollectedField, obj *model.SearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SearchResult_text(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
 			return obj.Text, nil
 		},
 		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_SearchResult_text(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SearchResult", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _SearchResult_type(ctx context.Context, field graphql.CollectedField, obj *model.SearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SearchResult_type(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Type, nil
+		},
+		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
 			return ec.marshalNString2string(ctx, selections, v)
 		},
@@ -665,72 +1424,86 @@ func (ec *executionContext) _Todo_text(ctx context.Context, field graphql.Collec
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_Todo_text(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Todo", field, false, false, errors.New("field of type String does not have child fields"))
+func (ec *executionContext) fieldContext_SearchResult_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SearchResult", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _Todo_done(ctx context.Context, field graphql.CollectedField, obj *model.Todo) (ret graphql.Marshaler) {
+func (ec *executionContext) _UploadResponse_uploadUrl(ctx context.Context, field graphql.CollectedField, obj *model.UploadResponse) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Todo_done(ctx, field)
+			return ec.fieldContext_UploadResponse_uploadUrl(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Done, nil
+			return obj.UploadURL, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
-			return ec.marshalNBoolean2bool(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_Todo_done(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Todo", field, false, false, errors.New("field of type Boolean does not have child fields"))
+func (ec *executionContext) fieldContext_UploadResponse_uploadUrl(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("UploadResponse", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _Todo_user(ctx context.Context, field graphql.CollectedField, obj *model.Todo) (ret graphql.Marshaler) {
+func (ec *executionContext) _UploadResponse_videoId(ctx context.Context, field graphql.CollectedField, obj *model.UploadResponse) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Todo_user(ctx, field)
+			return ec.fieldContext_UploadResponse_videoId(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.User, nil
+			return obj.VideoID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *model.User) graphql.Marshaler {
-			return ec.marshalNUser2ᚖgithubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐUser(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_Todo_user(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Todo",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_User(ctx, field)
-		},
-	}
-	return fc, nil
+func (ec *executionContext) fieldContext_UploadResponse_videoId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("UploadResponse", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
-func (ec *executionContext) _User_id(ctx context.Context, field graphql.CollectedField, obj *model.User) (ret graphql.Marshaler) {
+func (ec *executionContext) _UploadResponse_s3Key(ctx context.Context, field graphql.CollectedField, obj *model.UploadResponse) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_User_id(ctx, field)
+			return ec.fieldContext_UploadResponse_s3Key(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.S3Key, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_UploadResponse_s3Key(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("UploadResponse", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Video_id(ctx context.Context, field graphql.CollectedField, obj *model.Video) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Video_id(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
 			return obj.ID, nil
@@ -743,20 +1516,20 @@ func (ec *executionContext) _User_id(ctx context.Context, field graphql.Collecte
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_User_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("User", field, false, false, errors.New("field of type ID does not have child fields"))
+func (ec *executionContext) fieldContext_Video_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Video", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
-func (ec *executionContext) _User_name(ctx context.Context, field graphql.CollectedField, obj *model.User) (ret graphql.Marshaler) {
+func (ec *executionContext) _Video_title(ctx context.Context, field graphql.CollectedField, obj *model.Video) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_User_name(ctx, field)
+			return ec.fieldContext_Video_title(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Name, nil
+			return obj.Title, nil
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
@@ -766,8 +1539,100 @@ func (ec *executionContext) _User_name(ctx context.Context, field graphql.Collec
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_User_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("User", field, false, false, errors.New("field of type String does not have child fields"))
+func (ec *executionContext) fieldContext_Video_title(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Video", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Video_status(ctx context.Context, field graphql.CollectedField, obj *model.Video) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Video_status(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Status, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Video_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Video", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Video_summary(ctx context.Context, field graphql.CollectedField, obj *model.Video) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Video_summary(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Summary, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Video_summary(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Video", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Video_s3Key(ctx context.Context, field graphql.CollectedField, obj *model.Video) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Video_s3Key(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.S3Key, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Video_s3Key(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Video", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Video_createdAt(ctx context.Context, field graphql.CollectedField, obj *model.Video) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Video_createdAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Video_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Video", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) ___Directive_name(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
@@ -1829,8 +2694,8 @@ func (ec *executionContext) fieldContext___Type_isOneOf(_ context.Context, field
 
 // region    **************************** input.gotpl *****************************
 
-func (ec *executionContext) unmarshalInputNewTodo(ctx context.Context, obj any) (model.NewTodo, error) {
-	var it model.NewTodo
+func (ec *executionContext) unmarshalInputFinalizeVideoInput(ctx context.Context, obj any) (model.FinalizeVideoInput, error) {
+	var it model.FinalizeVideoInput
 	if obj == nil {
 		return it, nil
 	}
@@ -1840,27 +2705,94 @@ func (ec *executionContext) unmarshalInputNewTodo(ctx context.Context, obj any) 
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"text", "userId"}
+	fieldsInOrder := [...]string{"videoId"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
 			continue
 		}
 		switch k {
-		case "text":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("text"))
+		case "videoId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("videoId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.VideoID = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputUploadVideoInput(ctx context.Context, obj any) (model.UploadVideoInput, error) {
+	var it model.UploadVideoInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"title", "filename", "contentType"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "title":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("title"))
 			data, err := ec.unmarshalNString2string(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.Text = data
-		case "userId":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("userId"))
+			it.Title = data
+		case "filename":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("filename"))
 			data, err := ec.unmarshalNString2string(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.UserID = data
+			it.Filename = data
+		case "contentType":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("contentType"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ContentType = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputYouTubeInput(ctx context.Context, obj any) (model.YouTubeInput, error) {
+	var it model.YouTubeInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"url"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "url":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("url"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.URL = data
 		}
 	}
 	return it, nil
@@ -1873,6 +2805,52 @@ func (ec *executionContext) unmarshalInputNewTodo(ctx context.Context, obj any) 
 // endregion ************************** interface.gotpl ***************************
 
 // region    **************************** object.gotpl ****************************
+
+var chatResponseImplementors = []string{"ChatResponse"}
+
+func (ec *executionContext) _ChatResponse(ctx context.Context, sel ast.SelectionSet, obj *model.ChatResponse) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, chatResponseImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ChatResponse")
+		case "answer":
+			out.Values[i] = ec._ChatResponse_answer(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "thinking":
+			out.Values[i] = ec._ChatResponse_thinking(ctx, field, obj)
+		case "references":
+			out.Values[i] = ec._ChatResponse_references(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
 
 var mutationImplementors = []string{"Mutation"}
 
@@ -1893,9 +2871,30 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Mutation")
-		case "createTodo":
+		case "requestVideoUpload":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_createTodo(ctx, field)
+				return ec._Mutation_requestVideoUpload(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "finalizeVideoUpload":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_finalizeVideoUpload(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "processYouTubeVideo":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_processYouTubeVideo(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "deleteVideo":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deleteVideo(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -1942,7 +2941,26 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Query")
-		case "todos":
+		case "getVideoSummary":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_getVideoSummary(ctx, field)
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "semanticSearch":
 			field := field
 
 			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
@@ -1951,7 +2969,51 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Query_todos(ctx, field)
+				res = ec._Query_semanticSearch(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "chatWithVideo":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_chatWithVideo(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "getAllVideos":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_getAllVideos(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -1995,34 +3057,41 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 	return out
 }
 
-var todoImplementors = []string{"Todo"}
+var searchResultImplementors = []string{"SearchResult"}
 
-func (ec *executionContext) _Todo(ctx context.Context, sel ast.SelectionSet, obj *model.Todo) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, todoImplementors)
+func (ec *executionContext) _SearchResult(ctx context.Context, sel ast.SelectionSet, obj *model.SearchResult) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, searchResultImplementors)
 
 	out := graphql.NewFieldSet(fields)
 	deferred := make(map[string]*graphql.FieldSet)
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("Todo")
-		case "id":
-			out.Values[i] = ec._Todo_id(ctx, field, obj)
+			out.Values[i] = graphql.MarshalString("SearchResult")
+		case "videoId":
+			out.Values[i] = ec._SearchResult_videoId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "videoTitle":
+			out.Values[i] = ec._SearchResult_videoTitle(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "videoS3Key":
+			out.Values[i] = ec._SearchResult_videoS3Key(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "timestamp":
+			out.Values[i] = ec._SearchResult_timestamp(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
 		case "text":
-			out.Values[i] = ec._Todo_text(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "done":
-			out.Values[i] = ec._Todo_done(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "user":
-			out.Values[i] = ec._Todo_user(ctx, field, obj)
+			out.Values[i] = ec._SearchResult_text(ctx, field, obj)
+		case "type":
+			out.Values[i] = ec._SearchResult_type(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -2049,24 +3118,90 @@ func (ec *executionContext) _Todo(ctx context.Context, sel ast.SelectionSet, obj
 	return out
 }
 
-var userImplementors = []string{"User"}
+var uploadResponseImplementors = []string{"UploadResponse"}
 
-func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj *model.User) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, userImplementors)
+func (ec *executionContext) _UploadResponse(ctx context.Context, sel ast.SelectionSet, obj *model.UploadResponse) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, uploadResponseImplementors)
 
 	out := graphql.NewFieldSet(fields)
 	deferred := make(map[string]*graphql.FieldSet)
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("User")
-		case "id":
-			out.Values[i] = ec._User_id(ctx, field, obj)
+			out.Values[i] = graphql.MarshalString("UploadResponse")
+		case "uploadUrl":
+			out.Values[i] = ec._UploadResponse_uploadUrl(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "name":
-			out.Values[i] = ec._User_name(ctx, field, obj)
+		case "videoId":
+			out.Values[i] = ec._UploadResponse_videoId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "s3Key":
+			out.Values[i] = ec._UploadResponse_s3Key(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var videoImplementors = []string{"Video"}
+
+func (ec *executionContext) _Video(ctx context.Context, sel ast.SelectionSet, obj *model.Video) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, videoImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Video")
+		case "id":
+			out.Values[i] = ec._Video_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "title":
+			out.Values[i] = ec._Video_title(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "status":
+			out.Values[i] = ec._Video_status(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "summary":
+			out.Values[i] = ec._Video_summary(ctx, field, obj)
+		case "s3Key":
+			out.Values[i] = ec._Video_s3Key(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createdAt":
+			out.Values[i] = ec._Video_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -2444,6 +3579,41 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
+func (ec *executionContext) marshalNChatResponse2githubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐChatResponse(ctx context.Context, sel ast.SelectionSet, v model.ChatResponse) graphql.Marshaler {
+	return ec._ChatResponse(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNChatResponse2ᚖgithubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐChatResponse(ctx context.Context, sel ast.SelectionSet, v *model.ChatResponse) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._ChatResponse(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNFinalizeVideoInput2githubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐFinalizeVideoInput(ctx context.Context, v any) (model.FinalizeVideoInput, error) {
+	res, err := ec.unmarshalInputFinalizeVideoInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNFloat2float64(ctx context.Context, v any) (float64, error) {
+	res, err := graphql.UnmarshalFloatContext(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNFloat2float64(ctx context.Context, sel ast.SelectionSet, v float64) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalFloatContext(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return graphql.WrapContextMarshaler(ctx, res)
+}
+
 func (ec *executionContext) unmarshalNID2string(ctx context.Context, v any) (string, error) {
 	res, err := graphql.UnmarshalID(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -2460,9 +3630,30 @@ func (ec *executionContext) marshalNID2string(ctx context.Context, sel ast.Selec
 	return res
 }
 
-func (ec *executionContext) unmarshalNNewTodo2githubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐNewTodo(ctx context.Context, v any) (model.NewTodo, error) {
-	res, err := ec.unmarshalInputNewTodo(ctx, v)
-	return res, graphql.ErrorOnPath(ctx, err)
+func (ec *executionContext) marshalNSearchResult2ᚕᚖgithubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐSearchResultᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.SearchResult) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNSearchResult2ᚖgithubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐSearchResult(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNSearchResult2ᚖgithubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐSearchResult(ctx context.Context, sel ast.SelectionSet, v *model.SearchResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._SearchResult(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) (string, error) {
@@ -2481,15 +3672,34 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 	return res
 }
 
-func (ec *executionContext) marshalNTodo2githubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐTodo(ctx context.Context, sel ast.SelectionSet, v model.Todo) graphql.Marshaler {
-	return ec._Todo(ctx, sel, &v)
+func (ec *executionContext) marshalNUploadResponse2githubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐUploadResponse(ctx context.Context, sel ast.SelectionSet, v model.UploadResponse) graphql.Marshaler {
+	return ec._UploadResponse(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNTodo2ᚕᚖgithubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐTodoᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Todo) graphql.Marshaler {
+func (ec *executionContext) marshalNUploadResponse2ᚖgithubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐUploadResponse(ctx context.Context, sel ast.SelectionSet, v *model.UploadResponse) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._UploadResponse(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNUploadVideoInput2githubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐUploadVideoInput(ctx context.Context, v any) (model.UploadVideoInput, error) {
+	res, err := ec.unmarshalInputUploadVideoInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNVideo2githubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐVideo(ctx context.Context, sel ast.SelectionSet, v model.Video) graphql.Marshaler {
+	return ec._Video(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNVideo2ᚕᚖgithubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐVideoᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Video) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
-		return ec.marshalNTodo2ᚖgithubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐTodo(ctx, sel, v[i])
+		return ec.marshalNVideo2ᚖgithubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐVideo(ctx, sel, v[i])
 	})
 
 	for _, e := range ret {
@@ -2501,24 +3711,19 @@ func (ec *executionContext) marshalNTodo2ᚕᚖgithubᚗcomᚋyuchia329ᚋvideo_
 	return ret
 }
 
-func (ec *executionContext) marshalNTodo2ᚖgithubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐTodo(ctx context.Context, sel ast.SelectionSet, v *model.Todo) graphql.Marshaler {
+func (ec *executionContext) marshalNVideo2ᚖgithubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐVideo(ctx context.Context, sel ast.SelectionSet, v *model.Video) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
-	return ec._Todo(ctx, sel, v)
+	return ec._Video(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNUser2ᚖgithubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐUser(ctx context.Context, sel ast.SelectionSet, v *model.User) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._User(ctx, sel, v)
+func (ec *executionContext) unmarshalNYouTubeInput2githubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐYouTubeInput(ctx context.Context, v any) (model.YouTubeInput, error) {
+	res, err := ec.unmarshalInputYouTubeInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) marshalN__Directive2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐDirective(ctx context.Context, sel ast.SelectionSet, v introspection.Directive) graphql.Marshaler {
@@ -2692,6 +3897,78 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	return res
 }
 
+func (ec *executionContext) unmarshalOID2ᚖstring(ctx context.Context, v any) (*string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := graphql.UnmarshalID(v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOID2ᚖstring(ctx context.Context, sel ast.SelectionSet, v *string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalID(*v)
+	return res
+}
+
+func (ec *executionContext) unmarshalOInt2ᚖint32(ctx context.Context, v any) (*int32, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := graphql.UnmarshalInt32(v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOInt2ᚖint32(ctx context.Context, sel ast.SelectionSet, v *int32) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalInt32(*v)
+	return res
+}
+
+func (ec *executionContext) unmarshalOString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalOString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v any) (*string, error) {
 	if v == nil {
 		return nil, nil
@@ -2708,6 +3985,13 @@ func (ec *executionContext) marshalOString2ᚖstring(ctx context.Context, sel as
 	_ = ctx
 	res := graphql.MarshalString(*v)
 	return res
+}
+
+func (ec *executionContext) marshalOVideo2ᚖgithubᚗcomᚋyuchia329ᚋvideo_semantic_searchᚋbackendᚋgraphᚋmodelᚐVideo(ctx context.Context, sel ast.SelectionSet, v *model.Video) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Video(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalO__EnumValue2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐEnumValueᚄ(ctx context.Context, sel ast.SelectionSet, v []introspection.EnumValue) graphql.Marshaler {

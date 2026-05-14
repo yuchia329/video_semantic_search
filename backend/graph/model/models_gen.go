@@ -2,25 +2,52 @@
 
 package model
 
-type Mutation struct {
+type ChatResponse struct {
+	Answer     string          `json:"answer"`
+	Thinking   *string         `json:"thinking,omitempty"`
+	References []*SearchResult `json:"references"`
 }
 
-type NewTodo struct {
-	Text   string `json:"text"`
-	UserID string `json:"userId"`
+type FinalizeVideoInput struct {
+	VideoID string `json:"videoId"`
+}
+
+type Mutation struct {
 }
 
 type Query struct {
 }
 
-type Todo struct {
-	ID   string `json:"id"`
-	Text string `json:"text"`
-	Done bool   `json:"done"`
-	User *User  `json:"user"`
+type SearchResult struct {
+	VideoID    string  `json:"videoId"`
+	VideoTitle string  `json:"videoTitle"`
+	VideoS3Key string  `json:"videoS3Key"`
+	Timestamp  float64 `json:"timestamp"`
+	Text       *string `json:"text,omitempty"`
+	Type       string  `json:"type"`
 }
 
-type User struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+type UploadResponse struct {
+	UploadURL string `json:"uploadUrl"`
+	VideoID   string `json:"videoId"`
+	S3Key     string `json:"s3Key"`
+}
+
+type UploadVideoInput struct {
+	Title       string `json:"title"`
+	Filename    string `json:"filename"`
+	ContentType string `json:"contentType"`
+}
+
+type Video struct {
+	ID        string  `json:"id"`
+	Title     string  `json:"title"`
+	Status    string  `json:"status"`
+	Summary   *string `json:"summary,omitempty"`
+	S3Key     string  `json:"s3Key"`
+	CreatedAt string  `json:"createdAt"`
+}
+
+type YouTubeInput struct {
+	URL string `json:"url"`
 }
