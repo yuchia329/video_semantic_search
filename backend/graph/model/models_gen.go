@@ -2,25 +2,31 @@
 
 package model
 
-type Mutation struct {
+type ChatMessage struct {
+	ID        string `json:"id"`
+	SessionID string `json:"sessionId"`
+	Role      string `json:"role"`
+	Content   string `json:"content"`
+	CreatedAt string `json:"createdAt"`
 }
 
-type NewTodo struct {
-	Text   string `json:"text"`
-	UserID string `json:"userId"`
+type ChatSession struct {
+	ID        string `json:"id"`
+	VideoID   string `json:"videoId"`
+	CreatedAt string `json:"createdAt"`
+}
+
+type Mutation struct {
 }
 
 type Query struct {
 }
 
-type Todo struct {
-	ID   string `json:"id"`
-	Text string `json:"text"`
-	Done bool   `json:"done"`
-	User *User  `json:"user"`
-}
-
-type User struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+type Video struct {
+	ID        string  `json:"id"`
+	Title     string  `json:"title"`
+	Status    string  `json:"status"`
+	Summary   *string `json:"summary,omitempty"`
+	Analysis  *string `json:"analysis,omitempty"`
+	CreatedAt string  `json:"createdAt"`
 }

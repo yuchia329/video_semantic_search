@@ -1,28 +1,42 @@
-# GraphQL schema example
-#
-# https://gqlgen.com/getting-started/
-
-type Todo {
-  id: ID!
-  text: String!
-  done: Boolean!
-  user: User!
+type Video {
+  id:        ID!
+  title:     String!
+  status:    String!
+  summary:   String
+  analysis:  String
+  createdAt: String!
 }
 
-type User {
-  id: ID!
-  name: String!
+type ChatSession {
+  id:        ID!
+  videoId:   ID!
+  createdAt: String!
+}
+
+type ChatMessage {
+  id:        ID!
+  sessionId: ID!
+  role:      String!
+  content:   String!
+  createdAt: String!
 }
 
 type Query {
-  todos: [Todo!]!
-}
-
-input NewTodo {
-  text: String!
-  userId: String!
+  # List all videos (most recent first)
+  videos: [Video!]!
+  # Get a single video by ID
+  video(id: ID!): Video
+  # Get all messages for a chat session
+  chatHistory(sessionId: ID!): [ChatMessage!]!
 }
 
 type Mutation {
-  createTodo(input: NewTodo!): Todo!
+  # Register an uploaded video and enqueue it for processing
+  uploadVideo(title: String!, s3Key: String!): Video!
+  # Delete a video and all its chat sessions
+  deleteVideo(id: ID!): Boolean!
+  # Start a new chat session for a video
+  createChatSession(videoId: ID!): ChatSession!
+  # Send a user message and receive the assistant's reply
+  sendMessage(sessionId: ID!, message: String!): ChatMessage!
 }

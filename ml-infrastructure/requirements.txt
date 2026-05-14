@@ -1,10 +1,10 @@
 fastapi==0.111.0
 uvicorn==0.30.0
 pydantic==2.7.2
-sentence-transformers==3.0.0
 torch==2.3.0
-whisperx==3.1.1
-vllm==0.4.2
-transformers==4.40.0
 torchaudio==2.3.0
+whisperx==3.1.1
+transformers==4.44.0
+librosa==0.10.2
+soundfile==0.12.1
 numpy<2.0.0
