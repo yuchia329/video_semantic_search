@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package mlpb;
+option go_package = "github.com/yuchia329/video_semantic_search/backend/internal/mlpb";
+
+service TranscriptionService {
+  rpc Transcribe(TranscribeRequest) returns (TranscribeResponse) {}
+}
+
+message TranscribeRequest {
+  bytes audio_data = 1;
+}
+
+message TranscriptionSegment {
+  float start = 1;
+  float end = 2;
+  string text = 3;
+}
+
+message TranscribeResponse {
+  string language = 1;
+  repeated TranscriptionSegment segments = 2;
+}
+
+service EmotionService {
+  rpc ClassifyEmotions(EmotionRequest) returns (EmotionResponse) {}
+}
+
+message EmotionRequest {
+  bytes audio_data = 1;
+  repeated TranscriptionSegment segments = 2;
+}
+
+message EmotionResult {
+  float start = 1;
+  float end = 2;
+  string text = 3;
+  string emotion = 4;
+  float confidence = 5;
+}
+
+message EmotionResponse {
+  repeated EmotionResult segments = 1;
+}

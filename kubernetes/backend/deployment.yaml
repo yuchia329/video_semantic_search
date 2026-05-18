@@ -1,0 +1,52 @@
+---
+# kubernetes/backend/deployment.yaml
+# Go API server — runs on t4g (arm64) EC2 nodes.
+# Image should be built for linux/arm64 (GOARCH=arm64 GOOS=linux).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: video-search
+  labels:
+    app: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: <YOUR_REGISTRY>/video-search-backend:latest  # replace with your image
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: video-search-config
+            - secretRef:
+                name: video-search-secrets
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"

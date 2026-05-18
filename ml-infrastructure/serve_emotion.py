@@ -1,19 +1,14 @@
 import os
-import shutil
-import tempfile
-import json
-from typing import List
-
 os.environ["CUDA_VISIBLE_DEVICES"] = ""  # Run on CPU — model is only ~300MB
 
-from fastapi import FastAPI, File, UploadFile, HTTPException
-from pydantic import BaseModel
-import torch
+import tempfile
+import grpc
+from concurrent import futures
 import librosa
-import numpy as np
 from transformers import pipeline
 
-app = FastAPI(title="Audio Emotion Classification Service")
+import mlpb.ml_pb2 as ml_pb2
+import mlpb.ml_pb2_grpc as ml_pb2_grpc
 
 print("Loading wav2vec2 emotion model on CPU...")
 emotion_pipe = pipeline(
@@ -23,90 +18,62 @@ emotion_pipe = pipeline(
 )
 print("Emotion model loaded successfully.")
 
+class EmotionService(ml_pb2_grpc.EmotionServiceServicer):
+    def ClassifyEmotions(self, request, context):
+        try:
+            # Save audio bytes to a temporary file
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+                tmp.write(request.audio_data)
+                tmp_path = tmp.name
 
-class Segment(BaseModel):
-    start: float
-    end: float
-    text: str
+            # Load full audio
+            audio, sr = librosa.load(tmp_path, sr=16000, mono=True)
+            os.remove(tmp_path)
 
+            response = ml_pb2.EmotionResponse()
+            
+            for seg in request.segments:
+                start_sample = int(seg.start * sr)
+                end_sample = int(seg.end * sr)
+                clip = audio[start_sample:end_sample]
 
-class EmotionResult(BaseModel):
-    start: float
-    end: float
-    text: str
-    emotion: str
-    confidence: float
+                # Skip very short clips (< 0.5s) — unreliable
+                if len(clip) < sr * 0.5:
+                    response.segments.append(ml_pb2.EmotionResult(
+                        start=seg.start,
+                        end=seg.end,
+                        text=seg.text,
+                        emotion="neutral",
+                        confidence=0.0
+                    ))
+                    continue
 
-
-class EmotionResponse(BaseModel):
-    segments: List[EmotionResult]
-
-
-@app.post("/emotion", response_model=EmotionResponse)
-async def classify_emotions(
-    file: UploadFile = File(...),
-    segments: str = "",  # JSON string of WhisperX segments
-):
-    """
-    Classify emotions for each transcript segment in the audio file.
-    - file: the WAV audio file
-    - segments: JSON array of {start, end, text} objects from WhisperX
-    """
-    try:
-        # Save uploaded audio
-        suffix = os.path.splitext(file.filename or "audio.wav")[1] or ".wav"
-        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-            shutil.copyfileobj(file.file, tmp)
-            tmp_path = tmp.name
-
-        # Load full audio
-        audio, sr = librosa.load(tmp_path, sr=16000, mono=True)
-        os.remove(tmp_path)
-
-        # Parse segment list
-        seg_list: List[Segment] = []
-        if segments:
-            raw = json.loads(segments)
-            seg_list = [Segment(**s) for s in raw]
-
-        results: List[EmotionResult] = []
-        for seg in seg_list:
-            start_sample = int(seg.start * sr)
-            end_sample = int(seg.end * sr)
-            clip = audio[start_sample:end_sample]
-
-            # Skip very short clips (< 0.5s) — unreliable
-            if len(clip) < sr * 0.5:
-                results.append(EmotionResult(
+                preds = emotion_pipe(clip, sampling_rate=sr, top_k=1)
+                top = preds[0]
+                response.segments.append(ml_pb2.EmotionResult(
                     start=seg.start,
                     end=seg.end,
                     text=seg.text,
-                    emotion="neutral",
-                    confidence=0.0,
+                    emotion=top["label"],
+                    confidence=round(top["score"], 3)
                 ))
-                continue
 
-            preds = emotion_pipe(clip, sampling_rate=sr, top_k=1)
-            top = preds[0]
-            results.append(EmotionResult(
-                start=seg.start,
-                end=seg.end,
-                text=seg.text,
-                emotion=top["label"],
-                confidence=round(top["score"], 3),
-            ))
+            return response
 
-        return EmotionResponse(segments=results)
+        except Exception as e:
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(str(e))
+            return ml_pb2.EmotionResponse()
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/health")
-async def health():
-    return {"status": "ok", "model": "wav2vec2-emotion"}
-
+def serve():
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=4), options=[
+        ('grpc.max_receive_message_length', 50 * 1024 * 1024), # 50 MB
+    ])
+    ml_pb2_grpc.add_EmotionServiceServicer_to_server(EmotionService(), server)
+    server.add_insecure_port('[::]:8904')
+    print("gRPC Emotion Service listening on port 8904...")
+    server.start()
+    server.wait_for_termination()
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8904)
+    serve()

@@ -59,18 +59,21 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		ChatHistory func(childComplexity int, sessionID string) int
-		Video       func(childComplexity int, id string) int
-		Videos      func(childComplexity int) int
+		ChatHistory    func(childComplexity int, sessionID string) int
+		UserVideoCount func(childComplexity int) int
+		Video          func(childComplexity int, id string) int
+		Videos         func(childComplexity int) int
 	}
 
 	Video struct {
 		Analysis  func(childComplexity int) int
 		CreatedAt func(childComplexity int) int
 		ID        func(childComplexity int) int
+		IsDemo    func(childComplexity int) int
 		Status    func(childComplexity int) int
 		Summary   func(childComplexity int) int
 		Title     func(childComplexity int) int
+		UserID    func(childComplexity int) int
 	}
 }
 
@@ -84,6 +87,7 @@ type QueryResolver interface {
 	Videos(ctx context.Context) ([]*model.Video, error)
 	Video(ctx context.Context, id string) (*model.Video, error)
 	ChatHistory(ctx context.Context, sessionID string) ([]*model.ChatMessage, error)
+	UserVideoCount(ctx context.Context) (int32, error)
 }
 
 type executableSchema graphql.ExecutableSchemaState[ResolverRoot, DirectiveRoot, ComplexityRoot]
@@ -207,6 +211,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Query.ChatHistory(childComplexity, args["sessionId"].(string)), true
 
+	case "Query.userVideoCount":
+		if e.ComplexityRoot.Query.UserVideoCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Query.UserVideoCount(childComplexity), true
 	case "Query.video":
 		if e.ComplexityRoot.Query.Video == nil {
 			break
@@ -243,6 +253,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Video.ID(childComplexity), true
+	case "Video.isDemo":
+		if e.ComplexityRoot.Video.IsDemo == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Video.IsDemo(childComplexity), true
 	case "Video.status":
 		if e.ComplexityRoot.Video.Status == nil {
 			break
@@ -261,6 +277,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Video.Title(childComplexity), true
+	case "Video.userId":
+		if e.ComplexityRoot.Video.UserID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Video.UserID(childComplexity), true
 
 	}
 	return 0, false
@@ -403,6 +425,10 @@ func (ec *executionContext) childFields_Video(ctx context.Context, field graphql
 		return ec.fieldContext_Video_summary(ctx, field)
 	case "analysis":
 		return ec.fieldContext_Video_analysis(ctx, field)
+	case "userId":
+		return ec.fieldContext_Video_userId(ctx, field)
+	case "isDemo":
+		return ec.fieldContext_Video_isDemo(ctx, field)
 	case "createdAt":
 		return ec.fieldContext_Video_createdAt(ctx, field)
 	}
@@ -1183,6 +1209,29 @@ func (ec *executionContext) fieldContext_Query_chatHistory(ctx context.Context, 
 	return fc, nil
 }
 
+func (ec *executionContext) _Query_userVideoCount(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_userVideoCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Query().UserVideoCount(ctx)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int32) graphql.Marshaler {
+			return ec.marshalNInt2int32(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_userVideoCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Query", field, true, true, errors.New("field of type Int does not have child fields"))
+}
+
 func (ec *executionContext) _Query___type(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -1372,6 +1421,52 @@ func (ec *executionContext) _Video_analysis(ctx context.Context, field graphql.C
 }
 func (ec *executionContext) fieldContext_Video_analysis(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Video", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Video_userId(ctx context.Context, field graphql.CollectedField, obj *model.Video) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Video_userId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.UserID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Video_userId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Video", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Video_isDemo(ctx context.Context, field graphql.CollectedField, obj *model.Video) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Video_isDemo(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.IsDemo, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Video_isDemo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Video", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
 func (ec *executionContext) _Video_createdAt(ctx context.Context, field graphql.CollectedField, obj *model.Video) (ret graphql.Marshaler) {
@@ -2724,6 +2819,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "userVideoCount":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_userVideoCount(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "__type":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___type(ctx, field)
@@ -2785,6 +2902,16 @@ func (ec *executionContext) _Video(ctx context.Context, sel ast.SelectionSet, ob
 			out.Values[i] = ec._Video_summary(ctx, field, obj)
 		case "analysis":
 			out.Values[i] = ec._Video_analysis(ctx, field, obj)
+		case "userId":
+			out.Values[i] = ec._Video_userId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "isDemo":
+			out.Values[i] = ec._Video_isDemo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "createdAt":
 			out.Values[i] = ec._Video_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -3216,6 +3343,22 @@ func (ec *executionContext) unmarshalNID2string(ctx context.Context, v any) (str
 func (ec *executionContext) marshalNID2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
 	_ = sel
 	res := graphql.MarshalID(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
+func (ec *executionContext) unmarshalNInt2int32(ctx context.Context, v any) (int32, error) {
+	res, err := graphql.UnmarshalInt32(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNInt2int32(ctx context.Context, sel ast.SelectionSet, v int32) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalInt32(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")

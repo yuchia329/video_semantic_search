@@ -4,6 +4,8 @@ type Video {
   status:    String!
   summary:   String
   analysis:  String
+  userId:    String!
+  isDemo:    Boolean!
   createdAt: String!
 }
 
@@ -22,18 +24,20 @@ type ChatMessage {
 }
 
 type Query {
-  # List all videos (most recent first)
+  # List videos: demo videos + the calling user's own videos
   videos: [Video!]!
   # Get a single video by ID
   video(id: ID!): Video
   # Get all messages for a chat session
   chatHistory(sessionId: ID!): [ChatMessage!]!
+  # Count of non-demo videos owned by the calling user
+  userVideoCount: Int!
 }
 
 type Mutation {
-  # Register an uploaded video and enqueue it for processing
+  # Register an uploaded video and enqueue it for processing (via REST /upload)
   uploadVideo(title: String!, s3Key: String!): Video!
-  # Delete a video and all its chat sessions
+  # Delete a video and all its chat sessions (ownership enforced)
   deleteVideo(id: ID!): Boolean!
   # Start a new chat session for a video
   createChatSession(videoId: ID!): ChatSession!

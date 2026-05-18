@@ -28,5 +28,7 @@ type Video struct {
 	Status    string  `json:"status"`
 	Summary   *string `json:"summary,omitempty"`
 	Analysis  *string `json:"analysis,omitempty"`
+	UserID    string  `json:"userId"`
+	IsDemo    bool    `json:"isDemo"`
 	CreatedAt string  `json:"createdAt"`
 }

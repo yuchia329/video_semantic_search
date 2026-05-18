@@ -6,38 +6,48 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
-	"mime/multipart"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strings"
+	"sync"
 
 	"github.com/yuchia329/video_semantic_search/backend/internal/kafka"
 	"github.com/yuchia329/video_semantic_search/backend/internal/storage"
+	"github.com/yuchia329/video_semantic_search/backend/internal/mlpb"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
-const (
-	transcriptionURL = "http://localhost:8902/transcribe"
-	emotionURL       = "http://localhost:8904/emotion"
-	vllmURL          = "http://localhost:8900/v1/chat/completions"
-	vllmModel        = "Qwen/Qwen2.5-VL-7B-Instruct"
+// ─── Config ──────────────────────────────────────────────────────────────────
 
+// Config holds all external-service addresses for the processor.
+// Values are read from environment variables in server.go and injected here
+// so the same binary works in both local (localhost) and production (K8s) modes.
+type Config struct {
+	TranscriptionTarget string // gRPC target for WhisperX, e.g. "localhost:8902" or "gpu-tunnel:8902"
+	EmotionTarget       string // gRPC target for wav2vec2-emotion, e.g. "localhost:8904"
+	VLLMURL             string // HTTP base URL for vLLM, e.g. "http://localhost:8900/v1/chat/completions"
+	VLLMModel           string // HuggingFace model name served by vLLM
+}
+
+const (
 	// 0.5 fps = 1 frame every 2 seconds.
-	// For a 10-min video this yields 300 frames — a safe balance between
-	// visual coverage and VRAM/payload size.
+	// For a 10-min video this is a safe balance for
+	// visual coverage and keeping the compressed payload small.
 	framesPerSecond = "1/2"
 )
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
 type Processor struct {
-	consumer *kafka.Consumer
-	db       *storage.DB
-	s3       *storage.S3Client
+	consumer       *kafka.Consumer
+	db             *storage.DB
+	s3             *storage.S3Client
+	cfg            Config
+	OnStatusChange func(videoID, status string)
 }
 
 type ProcessVideoEvent struct {
@@ -45,8 +55,8 @@ type ProcessVideoEvent struct {
 	S3Key   string `json:"s3_key"`
 }
 
-func NewProcessor(consumer *kafka.Consumer, db *storage.DB, s3 *storage.S3Client) *Processor {
-	return &Processor{consumer: consumer, db: db, s3: s3}
+func NewProcessor(consumer *kafka.Consumer, db *storage.DB, s3 *storage.S3Client, cfg Config) *Processor {
+	return &Processor{consumer: consumer, db: db, s3: s3, cfg: cfg}
 }
 
 func (p *Processor) Start(ctx context.Context) {
@@ -72,11 +82,10 @@ func (p *Processor) handleMessage(ctx context.Context, key, value []byte) error 
 
 	videoPath := filepath.Join(tmpDir, "video.mp4")
 	audioPath := filepath.Join(tmpDir, "audio.wav")
-	framesDir := filepath.Join(tmpDir, "frames")
-	_ = os.Mkdir(framesDir, 0o755)
+	compressedVideoPath := filepath.Join(tmpDir, "compressed.mp4")
 
 	// ── 1. Download ─────────────────────────────────────────────────────────
-	setStatus(ctx, p.db, event.VideoID, "downloading")
+	p.setStatus(ctx, event.VideoID, "downloading")
 	if strings.HasPrefix(event.S3Key, "http") {
 		cmd := exec.Command("yt-dlp", "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4",
 			"-o", videoPath, event.S3Key)
@@ -95,49 +104,73 @@ func (p *Processor) handleMessage(ctx context.Context, key, value []byte) error 
 		f.Close()
 	}
 
-	// ── 2. Extract audio (16 kHz mono WAV for WhisperX + emotion model) ─────
-	setStatus(ctx, p.db, event.VideoID, "extracting")
-	run("ffmpeg", "-y", "-i", videoPath,
-		"-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", audioPath)
+	var transcript *TranscriptionResponse
+	var emotions []EmotionSegment
+	var wg sync.WaitGroup
 
-	// ── 3. Extract frames at 0.5 fps ────────────────────────────────────────
-	run("ffmpeg", "-y", "-i", videoPath,
-		"-vf", fmt.Sprintf("fps=%s,scale=854:480", framesPerSecond),
-		filepath.Join(framesDir, "frame_%06d.jpg"))
+	wg.Add(2)
 
-	// ── 4. Transcribe ───────────────────────────────────────────────────────
-	setStatus(ctx, p.db, event.VideoID, "transcribing")
-	transcript, err := transcribeAudio(audioPath)
-	if err != nil {
-		log.Printf("[%s] Transcription error: %v", event.VideoID, err)
-		transcript = &TranscriptionResponse{}
-	}
+	// ── Audio Pipeline ──────────────────────────────────────────────────────
+	go func() {
+		defer wg.Done()
+		
+		// 2. Extract audio (16 kHz mono WAV for WhisperX + emotion model)
+		p.setStatus(ctx, event.VideoID, "extracting")
+		run("ffmpeg", "-y", "-i", videoPath,
+			"-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", audioPath)
 
-	// ── 5. Emotion classification ────────────────────────────────────────────
-	setStatus(ctx, p.db, event.VideoID, "analyzing_emotions")
-	emotions, err := classifyEmotions(audioPath, transcript.Segments)
-	if err != nil {
-		log.Printf("[%s] Emotion error: %v", event.VideoID, err)
-		emotions = nil
-	}
+		// 4. Transcribe
+		p.setStatus(ctx, event.VideoID, "transcribing")
+		var tErr error
+		transcript, tErr = transcribeAudio(p.cfg, audioPath)
+		if tErr != nil {
+			log.Printf("[%s] Transcription error: %v", event.VideoID, tErr)
+			transcript = &TranscriptionResponse{}
+		}
+
+		// 5. Emotion classification
+		p.setStatus(ctx, event.VideoID, "analyzing_emotions")
+		emotions, tErr = classifyEmotions(p.cfg, audioPath, transcript.Segments)
+		if tErr != nil {
+			log.Printf("[%s] Emotion error: %v", event.VideoID, tErr)
+			emotions = nil
+		}
+	}()
+
+	// ── Video Pipeline ──────────────────────────────────────────────────────
+	go func() {
+		defer wg.Done()
+		
+		// 3. Compress video for VLM (downscale to 480p, 0.5 fps, remove audio)
+		run("ffmpeg", "-y", "-i", videoPath,
+			"-vf", fmt.Sprintf("fps=%s,scale=854:480", framesPerSecond),
+			"-c:v", "libx264", "-crf", "28", "-preset", "fast",
+			"-an", compressedVideoPath)
+	}()
+
+	// Wait for both pipelines to complete
+	wg.Wait()
 
 	// ── 6. Build VLM context and run analysis ────────────────────────────────
-	setStatus(ctx, p.db, event.VideoID, "analyzing_visuals")
-	framePaths := listSortedFiles(framesDir)
-	analysis, err := analyzeVideoWithVLM(framePaths, transcript, emotions)
+	p.setStatus(ctx, event.VideoID, "analyzing_visuals")
+	analysis, err := analyzeVideoWithVLM(p.cfg, compressedVideoPath, transcript, emotions)
 	if err != nil {
 		log.Printf("[%s] VLM analysis error: %v", event.VideoID, err)
 		analysis = "Video analysis could not be completed."
 	}
 
 	// ── 7. Derive a short summary from the analysis ──────────────────────────
-	setStatus(ctx, p.db, event.VideoID, "summarizing")
-	summary := extractSummaryFromAnalysis(analysis)
+	p.setStatus(ctx, event.VideoID, "summarizing")
+	summary := extractSummaryFromAnalysis(p.cfg, analysis)
 
 	// ── 8. Persist ───────────────────────────────────────────────────────────
 	_, _ = p.db.Pool.Exec(ctx,
 		`UPDATE videos SET status='completed', summary=$1, analysis=$2 WHERE id=$3`,
 		summary, analysis, event.VideoID)
+		
+	if p.OnStatusChange != nil {
+		p.OnStatusChange(event.VideoID, "completed")
+	}
 
 	log.Printf("[%s] Processing complete", event.VideoID)
 	return nil
@@ -156,28 +189,35 @@ type TranscriptionResponse struct {
 	Segments []TranscriptionSegment `json:"segments"`
 }
 
-func transcribeAudio(filePath string) (*TranscriptionResponse, error) {
-	f, err := os.Open(filePath)
+func transcribeAudio(cfg Config, filePath string) (*TranscriptionResponse, error) {
+	audioData, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("open audio: %w", err)
+		return nil, fmt.Errorf("read audio: %w", err)
 	}
-	defer f.Close()
 
-	body := &bytes.Buffer{}
-	w := multipart.NewWriter(body)
-	part, _ := w.CreateFormFile("file", filepath.Base(filePath))
-	io.Copy(part, f)
-	w.Close()
-
-	resp, err := http.Post(transcriptionURL, w.FormDataContentType(), body)
+	conn, err := grpc.NewClient(cfg.TranscriptionTarget, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer conn.Close()
 
-	var res TranscriptionResponse
-	json.NewDecoder(resp.Body).Decode(&res)
-	return &res, nil
+	client := mlpb.NewTranscriptionServiceClient(conn)
+	req := &mlpb.TranscribeRequest{AudioData: audioData}
+
+	resp, err := client.Transcribe(context.Background(), req, grpc.MaxCallSendMsgSize(50*1024*1024), grpc.MaxCallRecvMsgSize(50*1024*1024))
+	if err != nil {
+		return nil, err
+	}
+
+	res := &TranscriptionResponse{Language: resp.Language}
+	for _, seg := range resp.Segments {
+		res.Segments = append(res.Segments, TranscriptionSegment{
+			Start: float64(seg.Start),
+			End:   float64(seg.End),
+			Text:  seg.Text,
+		})
+	}
+	return res, nil
 }
 
 // ─── Step 5: Emotion classification ─────────────────────────────────────────
@@ -194,35 +234,48 @@ type EmotionResponse struct {
 	Segments []EmotionSegment `json:"segments"`
 }
 
-func classifyEmotions(audioPath string, segs []TranscriptionSegment) ([]EmotionSegment, error) {
+func classifyEmotions(cfg Config, audioPath string, segs []TranscriptionSegment) ([]EmotionSegment, error) {
 	if len(segs) == 0 {
 		return nil, nil
 	}
 
-	segJSON, _ := json.Marshal(segs)
-
-	f, err := os.Open(audioPath)
+	audioData, err := os.ReadFile(audioPath)
 	if err != nil {
-		return nil, fmt.Errorf("open audio: %w", err)
+		return nil, fmt.Errorf("read audio: %w", err)
 	}
-	defer f.Close()
 
-	body := &bytes.Buffer{}
-	w := multipart.NewWriter(body)
-	part, _ := w.CreateFormFile("file", filepath.Base(audioPath))
-	io.Copy(part, f)
-	w.WriteField("segments", string(segJSON))
-	w.Close()
-
-	resp, err := http.Post(emotionURL, w.FormDataContentType(), body)
+	conn, err := grpc.NewClient(cfg.EmotionTarget, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer conn.Close()
 
-	var res EmotionResponse
-	json.NewDecoder(resp.Body).Decode(&res)
-	return res.Segments, nil
+	client := mlpb.NewEmotionServiceClient(conn)
+	req := &mlpb.EmotionRequest{AudioData: audioData}
+	for _, seg := range segs {
+		req.Segments = append(req.Segments, &mlpb.TranscriptionSegment{
+			Start: float32(seg.Start),
+			End:   float32(seg.End),
+			Text:  seg.Text,
+		})
+	}
+
+	resp, err := client.ClassifyEmotions(context.Background(), req, grpc.MaxCallSendMsgSize(50*1024*1024), grpc.MaxCallRecvMsgSize(50*1024*1024))
+	if err != nil {
+		return nil, err
+	}
+
+	var results []EmotionSegment
+	for _, seg := range resp.Segments {
+		results = append(results, EmotionSegment{
+			Start:      float64(seg.Start),
+			End:        float64(seg.End),
+			Text:       seg.Text,
+			Emotion:    seg.Emotion,
+			Confidence: float64(seg.Confidence),
+		})
+	}
+	return results, nil
 }
 
 // ─── Step 6: VLM analysis ────────────────────────────────────────────────────
@@ -232,9 +285,14 @@ type contentBlock struct {
 	Type     string    `json:"type"`
 	Text     string    `json:"text,omitempty"`
 	ImageURL *imageURL `json:"image_url,omitempty"`
+	VideoURL *videoURL `json:"video_url,omitempty"`
 }
 
 type imageURL struct {
+	URL string `json:"url"`
+}
+
+type videoURL struct {
 	URL string `json:"url"`
 }
 
@@ -257,27 +315,25 @@ type vllmResponse struct {
 	} `json:"choices"`
 }
 
-func analyzeVideoWithVLM(framePaths []string, transcript *TranscriptionResponse, emotions []EmotionSegment) (string, error) {
-	// Build image content blocks (one per frame).
+func analyzeVideoWithVLM(cfg Config, videoPath string, transcript *TranscriptionResponse, emotions []EmotionSegment) (string, error) {
 	var blocks []contentBlock
-	for _, fp := range framePaths {
-		b64, err := encodeImageBase64(fp)
-		if err != nil {
-			log.Printf("Skipping frame %s: %v", fp, err)
-			continue
-		}
-		blocks = append(blocks, contentBlock{
-			Type:     "image_url",
-			ImageURL: &imageURL{URL: "data:image/jpeg;base64," + b64},
-		})
+	
+	// Encode the compressed video to base64
+	b64, err := encodeFileBase64(videoPath)
+	if err != nil {
+		return "", fmt.Errorf("encode video: %w", err)
 	}
+	blocks = append(blocks, contentBlock{
+		Type:     "video_url",
+		VideoURL: &videoURL{URL: "data:video/mp4;base64," + b64},
+	})
 
 	// Build the text prompt with transcript and emotion context.
-	contextText := buildContextText(transcript, emotions, len(framePaths))
+	contextText := buildContextText(transcript, emotions)
 	blocks = append(blocks, contentBlock{Type: "text", Text: contextText})
 
 	req := vllmRequest{
-		Model: vllmModel,
+		Model: cfg.VLLMModel,
 		Messages: []vllmMessage{
 			{
 				Role:    "system",
@@ -296,7 +352,7 @@ func analyzeVideoWithVLM(framePaths []string, transcript *TranscriptionResponse,
 		return "", fmt.Errorf("marshal vllm request: %w", err)
 	}
 
-	resp, err := http.Post(vllmURL, "application/json", bytes.NewBuffer(reqBody))
+	resp, err := http.Post(cfg.VLLMURL, "application/json", bytes.NewBuffer(reqBody))
 	if err != nil {
 		return "", fmt.Errorf("vllm request: %w", err)
 	}
@@ -324,9 +380,9 @@ Your task is to produce a comprehensive, structured analysis of the video that w
 
 Be specific, factual, and reference timestamps where possible.`
 
-func buildContextText(transcript *TranscriptionResponse, emotions []EmotionSegment, frameCount int) string {
+func buildContextText(transcript *TranscriptionResponse, emotions []EmotionSegment) string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("The video has %d frames (0.5 fps, so frame N ≈ timestamp N×2 seconds).\n\n", frameCount))
+	sb.WriteString("The video is provided natively. It has been downsampled to 0.5 fps (1 frame every 2 seconds) to fit context size.\n\n")
 
 	// Transcript
 	sb.WriteString("## Audio Transcript (with timestamps)\n")
@@ -357,7 +413,7 @@ func buildContextText(transcript *TranscriptionResponse, emotions []EmotionSegme
 
 // extractSummaryFromAnalysis sends a short follow-up to the LLM to condense
 // the full analysis into a 2-3 sentence summary for the video card UI.
-func extractSummaryFromAnalysis(analysis string) string {
+func extractSummaryFromAnalysis(cfg Config, analysis string) string {
 	if analysis == "" {
 		return ""
 	}
@@ -367,7 +423,7 @@ func extractSummaryFromAnalysis(analysis string) string {
 		Content string `json:"content"`
 	}
 	reqBody, _ := json.Marshal(map[string]interface{}{
-		"model": vllmModel,
+		"model": cfg.VLLMModel,
 		"messages": []textMsg{
 			{Role: "system", Content: "You are a helpful assistant. Summarize in 2-3 sentences."},
 			{Role: "user", Content: "Summarize the following video analysis:\n\n" + analysis},
@@ -375,7 +431,7 @@ func extractSummaryFromAnalysis(analysis string) string {
 		"max_tokens": 150,
 	})
 
-	resp, err := http.Post(vllmURL, "application/json", bytes.NewBuffer(reqBody))
+	resp, err := http.Post(cfg.VLLMURL, "application/json", bytes.NewBuffer(reqBody))
 	if err != nil {
 		return analysis[:min(len(analysis), 300)]
 	}
@@ -393,7 +449,7 @@ func extractSummaryFromAnalysis(analysis string) string {
 
 // ChatWithVideo sends a user question to the VLM using the stored video analysis
 // as the system context and the prior conversation history.
-func ChatWithVideo(analysis string, history []ChatTurn, userMessage string) (string, error) {
+func ChatWithVideo(ctx context.Context, cfg Config, analysis string, history []ChatTurn, userMessage string) (string, error) {
 	type msg struct {
 		Role    string `json:"role"`
 		Content string `json:"content"`
@@ -413,12 +469,18 @@ citing timestamps and specific details from the analysis when relevant.
 	messages = append(messages, msg{Role: "user", Content: userMessage})
 
 	reqBody, _ := json.Marshal(map[string]interface{}{
-		"model":      vllmModel,
+		"model":      cfg.VLLMModel,
 		"messages":   messages,
 		"max_tokens": 800,
 	})
 
-	resp, err := http.Post(vllmURL, "application/json", bytes.NewBuffer(reqBody))
+	req, err := http.NewRequestWithContext(ctx, "POST", cfg.VLLMURL, bytes.NewBuffer(reqBody))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("vllm chat request: %w", err)
 	}
@@ -442,7 +504,7 @@ type ChatTurn struct {
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
 
-func encodeImageBase64(path string) (string, error) {
+func encodeFileBase64(path string) (string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return "", err
@@ -450,20 +512,11 @@ func encodeImageBase64(path string) (string, error) {
 	return base64.StdEncoding.EncodeToString(data), nil
 }
 
-func listSortedFiles(dir string) []string {
-	entries, _ := os.ReadDir(dir)
-	var paths []string
-	for _, e := range entries {
-		if !e.IsDir() {
-			paths = append(paths, filepath.Join(dir, e.Name()))
-		}
+func (p *Processor) setStatus(ctx context.Context, videoID, status string) {
+	_, _ = p.db.Pool.Exec(ctx, "UPDATE videos SET status=$1 WHERE id=$2", status, videoID)
+	if p.OnStatusChange != nil {
+		p.OnStatusChange(videoID, status)
 	}
-	sort.Strings(paths)
-	return paths
-}
-
-func setStatus(ctx context.Context, db *storage.DB, videoID, status string) {
-	_, _ = db.Pool.Exec(ctx, "UPDATE videos SET status=$1 WHERE id=$2", status, videoID)
 }
 
 func run(name string, args ...string) {

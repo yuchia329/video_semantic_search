@@ -1,0 +1,22 @@
+---
+# kubernetes/kustomization.yaml
+# Apply the whole stack with:  kubectl apply -k kubernetes/ -n video-search
+#
+# Requires:
+#   1. kubectl create secret generic gpu-ssh-key --from-file=id_rsa=<path> -n video-search
+#   2. kubectl apply -f kubernetes/secret.yaml -n video-search  (filled from secret.example.yaml)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: video-search
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - postgres/statefulset.yaml
+  - redpanda/statefulset.yaml
+  - gpu-tunnel/deployment.yaml
+  - gpu-tunnel/service.yaml
+  - backend/deployment.yaml
+  - backend/service.yaml
+  - frontend/deployment.yaml

@@ -1,0 +1,68 @@
+---
+# kubernetes/postgres/statefulset.yaml
+# Single-node Postgres with pgvector — for development/staging on K8s.
+# For production, replace with RDS and update DATABASE_URL in configmap/secret.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: video-search
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: ankane/pgvector:latest
+          env:
+            - name: POSTGRES_USER
+              value: video_user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: video-search-secrets
+                  key: POSTGRES_PASSWORD
+                  optional: true   # falls back to "video_password" if not set
+            - name: POSTGRES_DB
+              value: video_db
+          ports:
+            - name: postgres
+              containerPort: 5432
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: video-search
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+  clusterIP: None   # headless for StatefulSet

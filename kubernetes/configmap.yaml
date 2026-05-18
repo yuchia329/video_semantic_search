@@ -1,0 +1,33 @@
+---
+# kubernetes/configmap.yaml
+# Non-sensitive configuration — safe to commit.
+# Sensitive values (DB password, AWS keys) go in secret.yaml (gitignored).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: video-search-config
+  namespace: video-search
+data:
+  APP_ENV: "production"
+  PORT: "8080"
+
+  # Kafka (Redpanda in-cluster StatefulSet)
+  KAFKA_BROKERS: "redpanda.video-search.svc.cluster.local:9092"
+  KAFKA_TOPIC: "video-processing"
+
+  # Storage — empty S3_ENDPOINT = real AWS S3 (IAM role on EC2 node)
+  S3_BUCKET: "hubstream-videos-prod"
+  AWS_REGION: "us-east-1"
+  S3_ENDPOINT: ""
+
+  # ML endpoints via the gpu-tunnel Service
+  TRANSCRIPTION_TARGET: "gpu-tunnel.video-search.svc.cluster.local:8902"
+  EMOTION_TARGET: "gpu-tunnel.video-search.svc.cluster.local:8904"
+  VLLM_URL: "http://gpu-tunnel.video-search.svc.cluster.local:8900/v1/chat/completions"
+  VLLM_MODEL: "cyankiwi/Qwen3-VL-8B-Instruct-AWQ-4bit"
+
+  # GPU server SSH connection — used by the gpu-tunnel Deployment
+  GPU_HOST: "<YOUR_GPU_SERVER_IP_OR_HOSTNAME>"
+  GPU_PORT: "22"
+  GPU_USER: "<YOUR_GPU_SERVER_SSH_USER>"
+

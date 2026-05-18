@@ -1,0 +1,48 @@
+---
+# ml-infrastructure/kubernetes/vllm-servicemonitor.yaml
+#
+# Wires up Prometheus (from k8s-observability-platform) to scrape vLLM metrics
+# through the gpu-tunnel Service already running in the video-search namespace.
+#
+# vLLM exposes Prometheus metrics at  http://<host>:8900/metrics  (always on).
+# The gpu-tunnel Service forwards port 8900 from the remote GPU server into the cluster,
+# so Prometheus reaches the metrics at:
+#   http://gpu-tunnel.video-search.svc.cluster.local:8900/metrics
+#
+# Prerequisites:
+#   - Prometheus Operator is installed (comes with k8s-observability-platform / kube-prometheus-stack)
+#   - The ServiceMonitor CRD is available
+#   - Prometheus is configured to discover ServiceMonitors across namespaces
+#     (set prometheus.prometheusSpec.serviceMonitorNamespaceSelector: {} in the Helm values)
+#
+# Exposed LLM-native metrics (vLLM Prometheus labels):
+#   vllm:generation_tokens_total          — total tokens generated
+#   vllm:prompt_tokens_total              — total prompt tokens processed
+#   vllm:time_to_first_token_seconds      — TTFT histogram
+#   vllm:time_per_output_token_seconds    — per-output-token latency histogram
+#   vllm:e2e_request_latency_seconds      — end-to-end request latency
+#   vllm:gpu_cache_usage_perc             — KV cache GPU utilisation (0–1)
+#   vllm:cpu_cache_usage_perc             — KV cache CPU utilisation (0–1)
+#   vllm:num_requests_running             — requests currently being processed
+#   vllm:num_requests_waiting             — requests queued (waiting for capacity)
+#   vllm:num_requests_swapped             — requests swapped to CPU
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: vllm-qwen
+  namespace: video-search
+  labels:
+    # Must match the Prometheus CR's serviceMonitorSelector (or be empty to match all)
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      component: vllm-metrics   # set on gpu-tunnel/service.yaml
+  namespaceSelector:
+    matchNames:
+      - video-search
+  endpoints:
+    - port: vllm              # matches the port name in gpu-tunnel/service.yaml
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s

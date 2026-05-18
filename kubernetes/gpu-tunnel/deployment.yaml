@@ -1,0 +1,99 @@
+---
+# kubernetes/gpu-tunnel/deployment.yaml
+#
+# This Deployment maintains persistent SSH port-forwards to the remote GPU server:
+#   - 8900  → vLLM (Qwen) — inference + /metrics
+#   - 8902  → WhisperX transcription (gRPC)
+#   - 8904  → wav2vec2-emotion (gRPC)
+#
+# The tunnelled ports are exposed cluster-wide via gpu-tunnel/service.yaml so that
+# the backend and Prometheus can reach them at:
+#   gpu-tunnel.video-search.svc.cluster.local:<port>
+#
+# Prerequisites:
+#   Create the SSH key secret first:
+#     kubectl create secret generic gpu-ssh-key \
+#       --from-file=id_rsa=/path/to/your/gpu_private_key \
+#       -n video-search
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gpu-tunnel
+  namespace: video-search
+  labels:
+    app: gpu-tunnel
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gpu-tunnel
+  template:
+    metadata:
+      labels:
+        app: gpu-tunnel
+    spec:
+      containers:
+        - name: ssh-tunnel
+          # Lightweight Alpine image with OpenSSH client
+          image: linuxserver/openssh-server:latest
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p ~/.ssh && chmod 700 ~/.ssh
+              cp /ssh-key/id_rsa ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
+              # Disable strict host checking for automation; consider knownhosts volume for production
+              echo "StrictHostKeyChecking no" >> ~/.ssh/config
+              # Keep tunnel alive with ServerAliveInterval; autossh-style retry loop
+              while true; do
+                ssh -N \
+                  -o ServerAliveInterval=30 \
+                  -o ServerAliveCountMax=3 \
+                  -o ExitOnForwardFailure=yes \
+                  -L 0.0.0.0:8900:localhost:8900 \
+                  -L 0.0.0.0:8902:localhost:8902 \
+                  -L 0.0.0.0:8904:localhost:8904 \
+                  ${GPU_USER}@${GPU_HOST} -p ${GPU_PORT:-22}
+                echo "SSH tunnel exited — restarting in 5s..."
+                sleep 5
+              done
+          env:
+            - name: GPU_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: video-search-config
+                  key: GPU_HOST
+            - name: GPU_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: video-search-config
+                  key: GPU_PORT
+                  optional: true    # defaults to 22 in the script
+            - name: GPU_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: video-search-config
+                  key: GPU_USER
+          ports:
+            - name: vllm
+              containerPort: 8900
+            - name: transcription
+              containerPort: 8902
+            - name: emotion
+              containerPort: 8904
+          volumeMounts:
+            - name: ssh-key
+              mountPath: /ssh-key
+              readOnly: true
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "32Mi"
+            limits:
+              cpu: "100m"
+              memory: "64Mi"
+      volumes:
+        - name: ssh-key
+          secret:
+            secretName: gpu-ssh-key
+            defaultMode: 0600

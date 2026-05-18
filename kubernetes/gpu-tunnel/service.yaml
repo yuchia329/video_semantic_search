@@ -1,0 +1,32 @@
+---
+# kubernetes/gpu-tunnel/service.yaml
+#
+# Exposes the SSH-tunnelled GPU ports cluster-wide.
+# The backend calls gpu-tunnel.video-search.svc.cluster.local:8900/8902/8904
+# Prometheus scrapes /metrics at port 8900 via ServiceMonitor.
+apiVersion: v1
+kind: Service
+metadata:
+  name: gpu-tunnel
+  namespace: video-search
+  labels:
+    app: gpu-tunnel
+    # This label is used by the vLLM ServiceMonitor selector
+    component: vllm-metrics
+spec:
+  selector:
+    app: gpu-tunnel
+  ports:
+    - name: vllm
+      port: 8900
+      targetPort: 8900
+      protocol: TCP
+    - name: transcription
+      port: 8902
+      targetPort: 8902
+      protocol: TCP
+    - name: emotion
+      port: 8904
+      targetPort: 8904
+      protocol: TCP
+  type: ClusterIP

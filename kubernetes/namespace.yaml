@@ -1,0 +1,11 @@
+---
+# kubernetes/namespace.yaml
+# Isolated namespace for the video-search app within the shared cluster.
+# Keeps resources separate from k8s-observability-platform while allowing
+# Prometheus (in the monitoring namespace) to scrape via ServiceMonitor.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: video-search
+  labels:
+    app.kubernetes.io/part-of: video-search

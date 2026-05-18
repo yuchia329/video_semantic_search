@@ -1,0 +1,20 @@
+# Root-level .gitignore for the video_semantic_search monorepo
+# ─────────────────────────────────────────────────────────────
+
+# Environment files (contain secrets — never commit)
+.env
+.env.local
+.env.production
+infrastructure/.env.local
+infrastructure/.env.production
+
+# Kubernetes secrets (real values — keep gitignored, only example files are committed)
+kubernetes/secret.yaml
+
+# Go build output
+backend/server
+
+# OS / Editor
+.DS_Store
+.idea/
+*.swp
