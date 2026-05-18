@@ -25,11 +25,7 @@ spec:
             - name: POSTGRES_USER
               value: video_user
             - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: video-search-secrets
-                  key: POSTGRES_PASSWORD
-                  optional: true   # falls back to "video_password" if not set
+              value: "video_password"
             - name: POSTGRES_DB
               value: video_db
           ports:

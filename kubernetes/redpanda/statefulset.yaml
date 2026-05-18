@@ -1,6 +1,4 @@
----
 # kubernetes/redpanda/statefulset.yaml
-# Single-node Redpanda (Kafka-compatible) message broker.
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -17,18 +15,34 @@ spec:
       labels:
         app: redpanda
     spec:
+      initContainers:
+        - name: fix-permissions
+          image: busybox
+          command: ['sh', '-c', 'chown -R 101:101 /var/lib/redpanda/data']
+          volumeMounts:
+            - name: redpanda-data
+              mountPath: /var/lib/redpanda/data
       containers:
         - name: redpanda
           image: docker.redpanda.com/redpandadata/redpanda:latest
-          command:
+          # --- FIX: Use 'args' instead of 'command', and add dev-container mode ---
+          args:
             - redpanda
             - start
-            - --smp=1
-            - --reserve-memory=0M
+            - --mode
+            - dev-container
+            - --smp
+            - "1"
+            - --reserve-memory
+            - "0M"
             - --overprovisioned
-            - --node-id=0
-            - --kafka-addr=PLAINTEXT://0.0.0.0:9092
-            - --advertise-kafka-addr=PLAINTEXT://redpanda.video-search.svc.cluster.local:9092
+            - --node-id
+            - "0"
+            - --kafka-addr
+            - "PLAINTEXT://0.0.0.0:9092"
+            - --advertise-kafka-addr
+            - "PLAINTEXT://redpanda.video-search.svc.cluster.local:9092"
+          # ------------------------------------------------------------------------
           ports:
             - name: kafka
               containerPort: 9092
@@ -52,17 +66,3 @@ spec:
         resources:
           requests:
             storage: 10Gi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: redpanda
-  namespace: video-search
-spec:
-  selector:
-    app: redpanda
-  ports:
-    - name: kafka
-      port: 9092
-      targetPort: 9092
-  clusterIP: None   # headless for StatefulSet
