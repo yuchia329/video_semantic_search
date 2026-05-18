@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: <YOUR_REGISTRY>/video-search-backend:latest  # replace with your image
+          image: yuchia329/video-search-backend:latest
           imagePullPolicy: Always
           ports:
             - name: http

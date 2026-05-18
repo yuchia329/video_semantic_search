@@ -27,7 +27,7 @@ data:
   VLLM_MODEL: "cyankiwi/Qwen3-VL-8B-Instruct-AWQ-4bit"
 
   # GPU server SSH connection — used by the gpu-tunnel Deployment
-  GPU_HOST: "<YOUR_GPU_SERVER_IP_OR_HOSTNAME>"
+  GPU_HOST: "nlp-gpu-01.be.ucsc.edu"
   GPU_PORT: "22"
-  GPU_USER: "<YOUR_GPU_SERVER_SSH_USER>"
+  GPU_USER: "ychan137"
 
